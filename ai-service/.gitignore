@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 .env
 .camera_selection.json
+.camera_session.lock

@@ -1,6 +1,7 @@
 """Camera discovery and selection helpers for macOS AVFoundation."""
 
 import json
+import fcntl
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,8 +12,53 @@ import cv2
 
 CAMERA_BACKEND = cv2.CAP_AVFOUNDATION
 CONFIG_PATH = Path(__file__).with_name(".camera_selection.json")
+CAMERA_SESSION_LOCK_PATH = Path(__file__).with_name(".camera_session.lock")
 DEFAULT_MAX_INDEX = 9
 STABLE_READS_REQUIRED = 3
+
+
+def _acquire_camera_session_lock():
+    """Prevent another process from opening the selected AVFoundation camera."""
+    lock_file = CAMERA_SESSION_LOCK_PATH.open("a+")
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        lock_file.close()
+        raise RuntimeError(
+            "Kamera boshqa SmartParking jarayoni tomonidan ishlatilmoqda. "
+            "Avval o'sha preview yoki serverni to'xtating."
+        ) from exc
+    return lock_file
+
+
+def _release_camera_session_lock(lock_file):
+    if lock_file is None:
+        return
+    try:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    finally:
+        lock_file.close()
+
+
+class _LockedCapture:
+    """Delegate VideoCapture methods and hold the process lock until release."""
+
+    def __init__(self, capture, lock_file):
+        self._capture = capture
+        self._lock_file = lock_file
+        self._released = False
+
+    def __getattr__(self, name):
+        return getattr(self._capture, name)
+
+    def release(self):
+        if self._released:
+            return
+        self._released = True
+        try:
+            self._capture.release()
+        finally:
+            _release_camera_session_lock(self._lock_file)
 
 
 @dataclass
@@ -46,8 +92,10 @@ def probe_camera(index, attempts=8, stable_reads=STABLE_READS_REQUIRED,
     stable_size = None
     first_frame_time = None
     last_frame_time = None
+    session_lock = None
 
     try:
+        session_lock = _acquire_camera_session_lock()
         capture = factory(index, CAMERA_BACKEND)
         result.opened = bool(capture.isOpened())
         if not result.opened:
@@ -99,6 +147,7 @@ def probe_camera(index, attempts=8, stable_reads=STABLE_READS_REQUIRED,
                 capture.release()
             except Exception:
                 pass
+        _release_camera_session_lock(session_lock)
     return result
 
 
@@ -111,14 +160,23 @@ def discover_cameras(max_index=DEFAULT_MAX_INDEX, **probe_options):
 def open_camera(index, capture_factory=None):
     """Open a selected camera using AVFoundation, releasing failed handles."""
     factory = capture_factory or cv2.VideoCapture
+    session_lock = _acquire_camera_session_lock()
+    capture = None
     try:
         capture = factory(int(index), CAMERA_BACKEND)
+        if not capture.isOpened():
+            raise RuntimeError(f"Kamera indeksi {index} ochilmadi.")
+        return _LockedCapture(capture, session_lock)
     except Exception as exc:
+        if capture is not None:
+            try:
+                capture.release()
+            except Exception:
+                pass
+        _release_camera_session_lock(session_lock)
+        if isinstance(exc, RuntimeError):
+            raise
         raise RuntimeError(f"Kamera indeksi {index} ochishda xato: {exc}") from exc
-    if not capture.isOpened():
-        capture.release()
-        raise RuntimeError(f"Kamera indeksi {index} ochilmadi.")
-    return capture
 
 
 def save_selection(index, path=CONFIG_PATH):

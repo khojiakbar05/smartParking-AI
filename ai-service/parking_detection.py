@@ -1,6 +1,7 @@
 """Real-time YOLO11n parking occupancy detection."""
 
 import argparse
+from datetime import datetime, timezone
 import threading
 import time
 from pathlib import Path
@@ -483,8 +484,68 @@ def annotate_frame(frame, slot_masks, states, slot_ratios,
     return frame
 
 
-def run(diagnose_yolo=False, slot_classifier_path=None):
+def build_api_status(slot_masks, states, slot_ratios, detections,
+                     alignment_warning, classifier_enabled=False):
+    """Serialize the current pipeline observation without inventing confidence."""
+    predictions = states
+    slots = []
+    for slot in slot_masks:
+        value = predictions[slot.slot_id]
+        if classifier_enabled:
+            classifier_status = value.status.value
+            status = "AVAILABLE" if classifier_status == "VACANT" else classifier_status
+            confidence = float(value.confidence)
+        else:
+            occupied = bool(value)
+            ratio = float(slot_ratios[slot.slot_id])
+            raw_occupied = ratio >= SLOT_OVERLAP_THRESHOLD
+            uncertain = (
+                alignment_warning
+                or raw_occupied != occupied
+                or (not occupied and ratio >= SLOT_OVERLAP_THRESHOLD * 0.75)
+            )
+            status = ("UNKNOWN" if uncertain else
+                      ("OCCUPIED" if occupied else "AVAILABLE"))
+            # Overlap ratios and YOLO confidence are not calibrated slot
+            # occupancy probabilities; do not present either as confidence.
+            confidence = None
+        slots.append({
+            "slot_id": slot.slot_id,
+            "status": status,
+            "confidence": confidence,
+        })
+
+    summary = {
+        "total_slots": len(slots),
+        "available_slots": sum(item["status"] == "AVAILABLE" for item in slots),
+        "occupied_slots": sum(item["status"] == "OCCUPIED" for item in slots),
+        "unknown_slots": sum(item["status"] == "UNKNOWN" for item in slots),
+        "vehicle_count": len(detections[0]),
+    }
+    return {
+        "success": True,
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+        "summary": summary,
+        "slots": slots,
+        "status_source": "slot_classifier" if classifier_enabled else "vehicle_overlap",
+    }
+
+
+def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
+        on_update=None, on_state=None, preview=True):
     stream = None
+    stop_event = stop_event or threading.Event()
+    pipeline_state = "starting"
+
+    def notify_state(state, error=None):
+        nonlocal pipeline_state
+        pipeline_state = state
+        if on_state is not None:
+            try:
+                on_state(state, error)
+            except Exception as callback_error:
+                print(f"Pipeline state callback xatosi: {callback_error}")
+
     try:
         if not MODEL_PATH.is_file():
             raise FileNotFoundError(f"YOLO modeli topilmadi: {MODEL_PATH}")
@@ -511,7 +572,9 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
 
         stream = LatestFrameCamera(camera)
         stream.start()
-        print("Parking occupancy ishga tushdi. Chiqish uchun Q bosing.")
+        notify_state("running")
+        print("Parking occupancy ishga tushdi." +
+              (" Chiqish uchun Q bosing." if preview else ""))
         print(f"Slotlar: {len(slots)} | overlap threshold: {SLOT_OVERLAP_THRESHOLD:.0%} | "
               f"smoothing: {SMOOTHING_OCCUPIED_VOTES}/{SMOOTHING_WINDOW} kadr")
         print("COCO vehicle IDs: " + ", ".join(
@@ -529,13 +592,14 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
         alignment_warning = False
         checked_frame_size = None
 
-        while True:
+        while not stop_event.is_set():
             frame, sequence, stream_error = stream.get_new_frame(last_sequence)
             if stream_error:
                 print(stream_error)
+                notify_state("error", stream_error)
                 break
             if frame is None:
-                time.sleep(0.005)
+                stop_event.wait(0.005)
                 continue
             last_sequence = sequence
             frame = resize_for_processing(frame)
@@ -634,7 +698,16 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
             fps = instant_fps if fps == 0 else 0.85 * fps + 0.15 * instant_fps
             previous_time = now
 
-            if slot_classifier is not None:
+            if on_update is not None:
+                try:
+                    on_update(build_api_status(
+                        slot_masks, states, ratios, detections,
+                        alignment_warning, classifier_enabled=slot_classifier is not None,
+                    ))
+                except Exception as callback_error:
+                    print(f"API status callback xatosi: {callback_error}")
+
+            if preview and slot_classifier is not None:
                 display = annotate_slot_classifications(
                     frame, slot_masks, states, detections, model.names, fps
                 )
@@ -650,7 +723,7 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
                     print(f"Slot classifier results: {summary}")
                     print(f"YOLO vehicles (independent): {len(detections[0])}")
                     last_debug_log = now
-            else:
+            elif preview:
                 display = annotate_frame(
                     frame, slot_masks, states, ratios, detections, model.names, fps,
                     alignment_warning=alignment_warning,
@@ -660,9 +733,10 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
                     model.names, vehicle_slot_overlaps, ratios, states,
                     alignment_warning,
                 )
-            cv2.imshow(PREVIEW_WINDOW, display)
-            if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q")):
-                break
+            if preview:
+                cv2.imshow(PREVIEW_WINDOW, display)
+                if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q")):
+                    break
 
         return 0
     except KeyboardInterrupt:
@@ -670,16 +744,20 @@ def run(diagnose_yolo=False, slot_classifier_path=None):
         return 0
     except Exception as exc:
         print(f"Parking detection xatosi: {exc}")
+        notify_state("error", str(exc))
         return 1
     finally:
         try:
             if stream is not None:
                 stream.stop()
         finally:
-            try:
-                cv2.destroyAllWindows()
-            except cv2.error:
-                pass
+            if preview:
+                try:
+                    cv2.destroyAllWindows()
+                except cv2.error:
+                    pass
+        if pipeline_state not in ("error", "stopped"):
+            notify_state("stopped")
 
 
 if __name__ == "__main__":

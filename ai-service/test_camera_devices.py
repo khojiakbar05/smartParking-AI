@@ -1,9 +1,10 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 import numpy as np
 
-from camera_devices import load_selection, probe_camera, save_selection
+from camera_devices import load_selection, open_camera, probe_camera, save_selection
 
 
 class FakeCapture:
@@ -65,6 +66,22 @@ class CameraDeviceTests(unittest.TestCase):
             config = Path(directory) / "camera.json"
             save_selection(6, config)
             self.assertEqual(load_selection(config), 6)
+
+    def test_camera_session_lock_rejects_second_process_session_until_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lock_path = Path(directory) / "camera.lock"
+            first_capture = FakeCapture([], opened=True)
+            second_capture = FakeCapture([], opened=True)
+            with patch("camera_devices.CAMERA_SESSION_LOCK_PATH", lock_path):
+                first = open_camera(0, capture_factory=lambda *_: first_capture)
+                with self.assertRaisesRegex(RuntimeError, "boshqa SmartParking"):
+                    open_camera(0, capture_factory=lambda *_: second_capture)
+                self.assertFalse(second_capture.released)
+                first.release()
+                second = open_camera(0, capture_factory=lambda *_: second_capture)
+                second.release()
+            self.assertTrue(first_capture.released)
+            self.assertTrue(second_capture.released)
 
 
 if __name__ == "__main__":
