@@ -1,0 +1,5 @@
+Candidate source: ai-service/parking_debug.png
+Source image dimensions: 1415x518 (aspect 2.7317)
+Slot coordinate dimensions: 1920x1080 (aspect 1.7778)
+Relative aspect ratio difference: 53.7%
+Visual content and feature matching do not establish that this is the image shown on the monitor. Existing P01-P07 polygons were therefore NOT applied to this source and no original_slot_crops were generated.
