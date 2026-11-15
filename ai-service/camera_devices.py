@@ -187,7 +187,9 @@ def save_selection(index, path=CONFIG_PATH):
 def load_selection(path=CONFIG_PATH):
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        index = data["index"]
+        index = data.get("index")
+        if index is None:
+            return None
         if isinstance(index, bool) or not isinstance(index, int) or index < 0:
             raise ValueError("index manfiy bo'lmagan butun son bo'lishi kerak")
         return index

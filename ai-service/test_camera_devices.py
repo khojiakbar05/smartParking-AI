@@ -79,6 +79,12 @@ class CameraDeviceTests(unittest.TestCase):
             save_selection(6, config)
             self.assertEqual(load_selection(config), 6)
 
+    def test_null_saved_selection_requires_explicit_camera_choice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "camera.json"
+            config.write_text('{"index": null}\n', encoding="utf-8")
+            self.assertIsNone(load_selection(config))
+
     def test_camera_session_lock_rejects_second_process_session_until_release(self):
         with tempfile.TemporaryDirectory() as directory:
             lock_path = Path(directory) / "camera.lock"

@@ -9,7 +9,7 @@ from camera_devices import (
     save_selection,
 )
 
-IPHONE_CAMERA_INDEX = 0
+IPHONE_CAMERA_INDEX = 1
 
 
 def preview(index):
@@ -47,17 +47,19 @@ def main():
     print("5. macOS: System Settings > Privacy & Security > Camera bo'limida Terminal/Python'ga ruxsat bering.")
     print("6. Topilmasa, iPhone'ni Mac'ga yaqin tutib, tekshiruvni qayta boshlang.\n")
 
-    print(f"iPhone uchun kamera indeksi {IPHONE_CAMERA_INDEX} tekshirilmoqda...\n")
     result = discover_cameras(max_index=IPHONE_CAMERA_INDEX)[IPHONE_CAMERA_INDEX]
     print_camera_result(result)
     if not result.stable:
-        print("0-indeksdan barqaror kadr olinmadi. iPhone/Mac sozlamalarini tekshirib qayta urinib ko'ring.")
+        print(
+            f"Indeks {IPHONE_CAMERA_INDEX} dan barqaror kadr olinmadi. "
+            "iPhone Continuity Camera yoqilganini tekshiring."
+        )
         return 1
 
     if not preview(IPHONE_CAMERA_INDEX):
         return 1
     save_selection(IPHONE_CAMERA_INDEX)
-    print(f"Indeks {IPHONE_CAMERA_INDEX} tanlandi va saqlandi (.camera_selection.json).")
+    print(f"Kamera indeksi {IPHONE_CAMERA_INDEX} tanlandi va saqlandi.")
     print("Endi camera_test.py yoki SmartParking skriptini ishga tushiring.")
     return 0
 

@@ -31,31 +31,30 @@ pipeline, waits for the capture loop, and releases the camera handle.
 
 ## Dashboard WebSocket liveness helper
 
-This repository does not currently include a React dashboard. The small
-framework-agnostic client in `../dashboard/parkingWebSocketClient.mjs` can be
-used by a dashboard component. It reports `Connected` after a heartbeat,
-`Stale` when no heartbeat arrives for 15 seconds, and `Disconnected` as soon
-as the socket closes. It reconnects with a single exponential-backoff timer;
-calling `start()` repeatedly is safe, and `stop()` clears timers and closes
-the socket.
+This repository does not currently include a React dashboard. The reusable
+browser health panel in `../dashboard/systemHealthMonitor.mjs` uses the
+existing WebSocket client. It reports `Connected` after a heartbeat, `Stale`
+when no heartbeat arrives for 15 seconds, and `Disconnected` as soon as the
+socket closes. Reconnection uses one exponential-backoff timer. Multiple
+panels for the same URL share one socket, and removing the last panel releases
+the connection and timers.
 
 Example browser integration:
 
 ```js
-import { ParkingWebSocketClient } from "./parkingWebSocketClient.mjs";
+import "./systemHealthMonitor.mjs";
 
-const client = new ParkingWebSocketClient("ws://127.0.0.1:8000/ws/parking", {
-  onParkingStatus: (message) => renderParking(message),
-  onPipelineStatus: (message) => renderPipeline(message),
-  onLivenessChange: ({ status, lastHeartbeatAt }) =>
-    renderConnection(status, lastHeartbeatAt),
-});
-client.start();
-// On component teardown: client.stop();
+const monitor = document.createElement("smartparking-health-monitor");
+monitor.setAttribute("ws-url", "ws://127.0.0.1:8000/ws/parking");
+monitor.addEventListener("parking-status", (event) => renderParking(event.detail));
+document.querySelector("#dashboard-health").append(monitor);
+// Removing the element releases the socket when the last subscriber unmounts.
 ```
 
-The helper only forwards parking data from `parking_status` messages. A
-heartbeat updates liveness and never updates or fabricates occupancy state.
+The panel only forwards parking data from `parking_status` messages. A
+heartbeat updates health timestamps and reported camera/pipeline status; it
+never updates or fabricates occupancy state. The `ws-url` attribute must be
+set to the API's actual WebSocket URL.
 
 Legacy vehicle-overlap statuses do not have a calibrated occupancy
 probability, so their `confidence` is `null`. The response labels their source
