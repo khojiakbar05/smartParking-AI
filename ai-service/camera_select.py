@@ -9,6 +9,8 @@ from camera_devices import (
     save_selection,
 )
 
+IPHONE_CAMERA_INDEX = 0
+
 
 def preview(index):
     capture = None
@@ -45,33 +47,19 @@ def main():
     print("5. macOS: System Settings > Privacy & Security > Camera bo'limida Terminal/Python'ga ruxsat bering.")
     print("6. Topilmasa, iPhone'ni Mac'ga yaqin tutib, tekshiruvni qayta boshlang.\n")
 
-    results = discover_cameras()
-    for result in results:
-        print_camera_result(result)
-    candidates = [result for result in results if result.stable]
-    if not candidates:
-        print("Kadrni barqaror uzatayotgan kamera yo'q. iPhone/Mac sozlamalarini tekshirib qayta urinib ko'ring.")
+    print(f"iPhone uchun kamera indeksi {IPHONE_CAMERA_INDEX} tekshirilmoqda...\n")
+    result = discover_cameras(max_index=IPHONE_CAMERA_INDEX)[IPHONE_CAMERA_INDEX]
+    print_camera_result(result)
+    if not result.stable:
+        print("0-indeksdan barqaror kadr olinmadi. iPhone/Mac sozlamalarini tekshirib qayta urinib ko'ring.")
         return 1
 
-    print("\nKamerani nom bilan aniqlab bo'lmagani uchun indeksni preview'dan tekshiring.")
-    while True:
-        answer = input("iPhone tasvirini ko'rsatgan indeksni kiriting (q - chiqish): ").strip()
-        if answer.lower() == "q":
-            return 0
-        try:
-            index = int(answer)
-        except ValueError:
-            print("Indeksni butun son qilib kiriting.")
-            continue
-        if index not in {item.index for item in candidates}:
-            print("Bu indeks barqaror kadr bermadi. Ro'yxatdagi indekslardan birini tanlang.")
-            continue
-        if not preview(index):
-            continue
-        save_selection(index)
-        print(f"Indeks {index} tanlandi va saqlandi (.camera_selection.json).")
-        print("Endi camera_check.py natijalarini ko'ring yoki SmartParking skriptini ishga tushiring.")
-        return 0
+    if not preview(IPHONE_CAMERA_INDEX):
+        return 1
+    save_selection(IPHONE_CAMERA_INDEX)
+    print(f"Indeks {IPHONE_CAMERA_INDEX} tanlandi va saqlandi (.camera_selection.json).")
+    print("Endi camera_test.py yoki SmartParking skriptini ishga tushiring.")
+    return 0
 
 
 if __name__ == "__main__":
