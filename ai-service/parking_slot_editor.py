@@ -1,13 +1,13 @@
 
 import cv2
 import json
-import os
 import numpy as np
+from camera_devices import open_selected_camera
 
-camera = cv2.VideoCapture(1, cv2.CAP_AVFOUNDATION)
-
-if not camera.isOpened():
-    raise RuntimeError("Laptop kamerasi ochilmadi!")
+try:
+    camera = open_selected_camera()
+except RuntimeError as exc:
+    raise SystemExit(str(exc))
 
 slots = []
 current_points = []

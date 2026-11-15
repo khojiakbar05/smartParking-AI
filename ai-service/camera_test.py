@@ -1,11 +1,11 @@
 
 import cv2
+from camera_devices import open_selected_camera
 
-camera = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
-
-if not camera.isOpened():
-    print("Camera ochilmadi!")
-    exit()
+try:
+    camera = open_selected_camera()
+except RuntimeError as exc:
+    raise SystemExit(str(exc))
 
 print("Camera muvaffaqiyatli ishga tushdi.")
 print("Chiqish uchun Q tugmasini bosing.")

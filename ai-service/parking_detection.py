@@ -5,6 +5,7 @@ import torch
 import numpy as np
 
 from ultralytics import YOLO
+from camera_devices import open_selected_camera
 
 # 1. YOLO model
 model = YOLO("yolo11n.pt")
@@ -21,10 +22,10 @@ original_width = parking_data["frame_width"]
 original_height = parking_data["frame_height"]
 
 # 3. Camera
-camera = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
-
-if not camera.isOpened():
-    raise RuntimeError("Kamera ochilmadi!")
+try:
+    camera = open_selected_camera()
+except RuntimeError as exc:
+    raise SystemExit(str(exc))
 
 vehicle_classes = [2, 3, 5, 7]
 

@@ -1,21 +1,23 @@
+"""AVFoundation camera diagnostics based on real consecutive frame reads."""
 
-import cv2
+from camera_devices import discover_cameras, print_camera_result
 
-for index in range(5):
-    camera = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
 
-    if camera.isOpened():
-        success, frame = camera.read()
+def main():
+    print("Mac kameralarini tekshirish (AVFoundation)...")
+    print("Indekslar jismoniy kameralar sonini anglatmaydi; takror bo'lishi mumkin.\n")
+    results = discover_cameras()
+    for result in results:
+        print_camera_result(result)
 
-        if success:
-            height, width = frame.shape[:2]
-            print(
-                f"Camera {index}: WORKING "
-                f"({width}x{height})"
-            )
-        else:
-            print(f"Camera {index}: Opened, but no frame")
+    stable = [result for result in results if result.stable]
+    if not stable:
+        print("Barqaror kamera topilmadi. iPhone uchun Continuity Camera yoqilganini tekshiring.")
+        return 1
+    print(f"\nBarqaror indekslar: {', '.join(str(item.index) for item in stable)}")
+    print("Qaysi biri iPhone ekanini aniqlash uchun camera_select.py orqali preview qiling.")
+    return 0
 
-        camera.release()
-    else:
-        print(f"Camera {index}: Not available")
+
+if __name__ == "__main__":
+    raise SystemExit(main())
