@@ -3,9 +3,9 @@
 import cv2
 
 from camera_devices import (
-    discover_cameras,
     open_camera,
     print_camera_result,
+    probe_camera,
     save_selection,
 )
 
@@ -40,14 +40,16 @@ def preview(index):
 
 def main():
     print("iPhone 16 Pro Max Continuity Camera ni tanlash")
-    print("1. iPhone qulfdan chiqarilgan va Mac yaqinida bo'lsin.")
+    print("1. iPhone Mac yaqinida, qulflangan va orqa kamerasi ochiq holda tursin.")
     print("2. Ikkala qurilma bir xil Apple Account va ikki bosqichli himoyadan foydalansin.")
     print("3. Mac va iPhone'da Wi-Fi hamda Bluetooth yoqilgan bo'lsin.")
     print("4. iPhone: Settings > General > AirPlay & Continuity (yoki AirPlay & Handoff) > Continuity Camera ni yoqing.")
     print("5. macOS: System Settings > Privacy & Security > Camera bo'limida Terminal/Python'ga ruxsat bering.")
     print("6. Topilmasa, iPhone'ni Mac'ga yaqin tutib, tekshiruvni qayta boshlang.\n")
 
-    result = discover_cameras(max_index=IPHONE_CAMERA_INDEX)[IPHONE_CAMERA_INDEX]
+    # Probe only index 1. A range scan would open index 0 first (the MacBook
+    # camera on this setup), which can steal the visible preview/session.
+    result = probe_camera(IPHONE_CAMERA_INDEX)
     print_camera_result(result)
     if not result.stable:
         print(
