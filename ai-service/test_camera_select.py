@@ -6,9 +6,9 @@ import camera_select
 
 
 class CameraSelectTests(unittest.TestCase):
-    def test_selection_probes_previews_and_saves_only_index_one(self):
+    def test_selection_probes_previews_and_saves_only_selected_index(self):
         result = CameraResult(
-            index=1,
+            index=camera_select.IPHONE_CAMERA_INDEX,
             opened=True,
             frame_read_success=True,
             stable=True,
@@ -22,9 +22,10 @@ class CameraSelectTests(unittest.TestCase):
         ):
             self.assertEqual(camera_select.main(), 0)
 
-        probe.assert_called_once_with(1)
-        preview.assert_called_once_with(1)
-        save.assert_called_once_with(1)
+        selected_index = camera_select.IPHONE_CAMERA_INDEX
+        probe.assert_called_once_with(selected_index)
+        preview.assert_called_once_with(selected_index)
+        save.assert_called_once_with(selected_index)
 
 
 if __name__ == "__main__":

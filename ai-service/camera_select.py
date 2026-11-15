@@ -9,7 +9,7 @@ from camera_devices import (
     save_selection,
 )
 
-IPHONE_CAMERA_INDEX = 1
+IPHONE_CAMERA_INDEX = 0
 
 
 def preview(index):
@@ -47,8 +47,7 @@ def main():
     print("5. macOS: System Settings > Privacy & Security > Camera bo'limida Terminal/Python'ga ruxsat bering.")
     print("6. Topilmasa, iPhone'ni Mac'ga yaqin tutib, tekshiruvni qayta boshlang.\n")
 
-    # Probe only index 1. A range scan would open index 0 first (the MacBook
-    # camera on this setup), which can steal the visible preview/session.
+    # Probe only the explicitly selected index; don't scan/open other cameras.
     result = probe_camera(IPHONE_CAMERA_INDEX)
     print_camera_result(result)
     if not result.stable:
