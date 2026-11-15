@@ -1,8 +1,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-
 import numpy as np
 
 from camera_devices import load_selection, probe_camera, save_selection
