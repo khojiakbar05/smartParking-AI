@@ -532,10 +532,11 @@ def build_api_status(slot_masks, states, slot_ratios, detections,
 
 
 def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
-        on_update=None, on_state=None, preview=True):
+        on_update=None, on_state=None, on_camera_state=None, preview=True):
     stream = None
     stop_event = stop_event or threading.Event()
     pipeline_state = "starting"
+    camera_state = "starting"
 
     def notify_state(state, error=None):
         nonlocal pipeline_state
@@ -545,6 +546,15 @@ def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
                 on_state(state, error)
             except Exception as callback_error:
                 print(f"Pipeline state callback xatosi: {callback_error}")
+
+    def notify_camera_state(state):
+        nonlocal camera_state
+        camera_state = state
+        if on_camera_state is not None:
+            try:
+                on_camera_state(state)
+            except Exception as callback_error:
+                print(f"Camera state callback xatosi: {callback_error}")
 
     try:
         if not MODEL_PATH.is_file():
@@ -568,10 +578,12 @@ def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
         try:
             camera = open_selected_camera()
         except RuntimeError as exc:
+            notify_camera_state("disconnected")
             raise RuntimeError(f"iPhone kamerasi ochilmadi: {exc}") from exc
 
         stream = LatestFrameCamera(camera)
         stream.start()
+        notify_camera_state("connected")
         notify_state("running")
         print("Parking occupancy ishga tushdi." +
               (" Chiqish uchun Q bosing." if preview else ""))
@@ -596,6 +608,7 @@ def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
             frame, sequence, stream_error = stream.get_new_frame(last_sequence)
             if stream_error:
                 print(stream_error)
+                notify_camera_state("disconnected")
                 notify_state("error", stream_error)
                 break
             if frame is None:
@@ -756,6 +769,8 @@ def run(diagnose_yolo=False, slot_classifier_path=None, *, stop_event=None,
                     cv2.destroyAllWindows()
                 except cv2.error:
                     pass
+        if camera_state != "disconnected":
+            notify_camera_state("disconnected")
         if pipeline_state not in ("error", "stopped"):
             notify_state("stopped")
 

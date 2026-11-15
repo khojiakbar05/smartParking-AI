@@ -22,9 +22,40 @@ pipeline, waits for the capture loop, and releases the camera handle.
   `UNKNOWN` with null confidence before inference is available.
 - `WS /ws/parking`: initial latest snapshot followed by changed snapshots and
   a lightweight heartbeat every five seconds. Heartbeats include pipeline
-  state and the timestamp of the last processed frame, not repeated or
-  invented parking data. A bounded latest-only queue prevents slow clients
-  from blocking inference.
+  state, camera state, and the timestamp of the last processed frame, not
+  repeated or invented parking data. Each heartbeat has `type: "heartbeat"`,
+  `pipeline_status`, `camera_status`, `last_inference_at`, and
+  `server_timestamp` (the legacy `timestamp` field is retained). Occupancy
+  snapshots remain change-only. A bounded latest-only queue prevents slow
+  clients from blocking inference.
+
+## Dashboard WebSocket liveness helper
+
+This repository does not currently include a React dashboard. The small
+framework-agnostic client in `../dashboard/parkingWebSocketClient.mjs` can be
+used by a dashboard component. It reports `Connected` after a heartbeat,
+`Stale` when no heartbeat arrives for 15 seconds, and `Disconnected` as soon
+as the socket closes. It reconnects with a single exponential-backoff timer;
+calling `start()` repeatedly is safe, and `stop()` clears timers and closes
+the socket.
+
+Example browser integration:
+
+```js
+import { ParkingWebSocketClient } from "./parkingWebSocketClient.mjs";
+
+const client = new ParkingWebSocketClient("ws://127.0.0.1:8000/ws/parking", {
+  onParkingStatus: (message) => renderParking(message),
+  onPipelineStatus: (message) => renderPipeline(message),
+  onLivenessChange: ({ status, lastHeartbeatAt }) =>
+    renderConnection(status, lastHeartbeatAt),
+});
+client.start();
+// On component teardown: client.stop();
+```
+
+The helper only forwards parking data from `parking_status` messages. A
+heartbeat updates liveness and never updates or fabricates occupancy state.
 
 Legacy vehicle-overlap statuses do not have a calibrated occupancy
 probability, so their `confidence` is `null`. The response labels their source

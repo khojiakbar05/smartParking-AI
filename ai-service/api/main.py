@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import logging
 import math
 import os
 from queue import Empty
@@ -13,6 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.service import ParkingPipelineService
 from parking_logic import load_slots
 from parking_detection import SLOTS_PATH
+
+logger = logging.getLogger(__name__)
 
 
 def _cors_origins():
@@ -110,6 +113,7 @@ def create_app(pipeline_service=None, websocket_heartbeat_seconds=None):
     async def parking_updates(websocket: WebSocket):
         await websocket.accept()
         subscriber, snapshot, state, error = service.subscribe()
+        connection_status = service.status()
         receive_task = None
         event_task = None
         try:
@@ -120,9 +124,11 @@ def create_app(pipeline_service=None, websocket_heartbeat_seconds=None):
                     "type": "pipeline_status",
                     "success": False,
                     "status": state,
+                    "camera_status": connection_status["camera_status"],
                     "timestamp": None,
                     "error": error or "Waiting for the first camera inference result.",
                 })
+            logger.info("Parking WebSocket client connected")
             loop = asyncio.get_running_loop()
             receive_task = asyncio.create_task(websocket.receive())
             next_heartbeat = loop.time() + heartbeat_seconds
@@ -154,25 +160,35 @@ def create_app(pipeline_service=None, websocket_heartbeat_seconds=None):
                 now = loop.time()
                 if now >= next_heartbeat:
                     state = service.status()
+                    server_timestamp = datetime.now(timezone.utc).isoformat(
+                        timespec="milliseconds"
+                    )
                     await websocket.send_json({
                         "type": "heartbeat",
                         "success": state["pipeline_status"] == "running",
-                        "timestamp": datetime.now(timezone.utc).isoformat(
-                            timespec="milliseconds"
-                        ),
+                        "timestamp": server_timestamp,
+                        "server_timestamp": server_timestamp,
                         "pipeline_status": state["pipeline_status"],
+                        "camera_status": state["camera_status"],
                         "ready": state["ready"],
                         "last_inference_at": state["last_update"],
                     })
+                    logger.debug(
+                        "Sent parking heartbeat: pipeline=%s camera=%s last_inference=%s",
+                        state["pipeline_status"], state["camera_status"],
+                        state["last_update"],
+                    )
                     next_heartbeat = now + heartbeat_seconds
         except WebSocketDisconnect:
-            pass
+            logger.info("Parking WebSocket client disconnected")
         finally:
             if receive_task is not None:
                 receive_task.cancel()
             if event_task is not None:
                 event_task.cancel()
             service.unsubscribe(subscriber)
+            if websocket.client_state.name != "DISCONNECTED":
+                logger.info("Parking WebSocket client connection ended")
 
     return app
 
