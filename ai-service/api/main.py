@@ -2,6 +2,8 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+import math
 import os
 from queue import Empty
 
@@ -20,8 +22,21 @@ def _cors_origins():
     return ["http://localhost:3000", "http://localhost:5173"]
 
 
-def create_app(pipeline_service=None):
+def _heartbeat_interval(configured=None):
+    value = (os.getenv("SMARTPARKING_WS_HEARTBEAT_SECONDS", "5")
+             if configured is None else configured)
+    try:
+        interval = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("WebSocket heartbeat interval must be a positive number.") from exc
+    if not math.isfinite(interval) or interval <= 0:
+        raise ValueError("WebSocket heartbeat interval must be a positive number.")
+    return interval
+
+
+def create_app(pipeline_service=None, websocket_heartbeat_seconds=None):
     service = pipeline_service or ParkingPipelineService()
+    heartbeat_seconds = _heartbeat_interval(websocket_heartbeat_seconds)
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -108,10 +123,13 @@ def create_app(pipeline_service=None):
                     "timestamp": None,
                     "error": error or "Waiting for the first camera inference result.",
                 })
+            loop = asyncio.get_running_loop()
             receive_task = asyncio.create_task(websocket.receive())
+            next_heartbeat = loop.time() + heartbeat_seconds
             while True:
+                queue_timeout = min(1.0, max(0.01, next_heartbeat - loop.time()))
                 event_task = asyncio.create_task(
-                    asyncio.to_thread(subscriber.get, True, 1.0)
+                    asyncio.to_thread(subscriber.get, True, queue_timeout)
                 )
                 done, _pending = await asyncio.wait(
                     {receive_task, event_task},
@@ -132,6 +150,21 @@ def create_app(pipeline_service=None):
                     event_task = None
                 else:
                     event_task.cancel()
+
+                now = loop.time()
+                if now >= next_heartbeat:
+                    state = service.status()
+                    await websocket.send_json({
+                        "type": "heartbeat",
+                        "success": state["pipeline_status"] == "running",
+                        "timestamp": datetime.now(timezone.utc).isoformat(
+                            timespec="milliseconds"
+                        ),
+                        "pipeline_status": state["pipeline_status"],
+                        "ready": state["ready"],
+                        "last_inference_at": state["last_update"],
+                    })
+                    next_heartbeat = now + heartbeat_seconds
         except WebSocketDisconnect:
             pass
         finally:

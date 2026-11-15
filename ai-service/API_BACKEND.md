@@ -20,8 +20,11 @@ pipeline, waits for the capture loop, and releases the camera handle.
   until the first frame has been processed or if startup failed.
 - `GET /api/parking/slots`: saved slot IDs and latest states; slots are
   `UNKNOWN` with null confidence before inference is available.
-- `WS /ws/parking`: initial latest snapshot followed by changed snapshots. A
-  bounded latest-only queue prevents slow clients from blocking inference.
+- `WS /ws/parking`: initial latest snapshot followed by changed snapshots and
+  a lightweight heartbeat every five seconds. Heartbeats include pipeline
+  state and the timestamp of the last processed frame, not repeated or
+  invented parking data. A bounded latest-only queue prevents slow clients
+  from blocking inference.
 
 Legacy vehicle-overlap statuses do not have a calibrated occupancy
 probability, so their `confidence` is `null`. The response labels their source
@@ -35,7 +38,8 @@ CORS defaults to `http://localhost:3000` and `http://localhost:5173`. Override
 with `SMARTPARKING_CORS_ORIGINS` as a comma-separated list. When using
 `python -m api.main`, host and port can be set with `SMARTPARKING_API_HOST` and
 `SMARTPARKING_API_PORT`; defaults are `127.0.0.1:8000`. Uvicorn CLI flags
-override those values.
+override those values. `SMARTPARKING_WS_HEARTBEAT_SECONDS` sets the WebSocket
+heartbeat interval; it defaults to 5 seconds and must be positive.
 
 ## Start
 

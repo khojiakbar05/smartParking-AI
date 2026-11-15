@@ -28,6 +28,18 @@ class FakeCapture:
 
 
 class CameraDeviceTests(unittest.TestCase):
+    def setUp(self):
+        self._lock_directory = tempfile.TemporaryDirectory()
+        self._lock_path_patch = patch(
+            "camera_devices.CAMERA_SESSION_LOCK_PATH",
+            Path(self._lock_directory.name) / "camera.lock",
+        )
+        self._lock_path_patch.start()
+
+    def tearDown(self):
+        self._lock_path_patch.stop()
+        self._lock_directory.cleanup()
+
     def test_requires_three_consecutive_valid_frames_and_releases(self):
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         capture = FakeCapture([
