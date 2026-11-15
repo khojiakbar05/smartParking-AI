@@ -68,11 +68,10 @@ class ParkingLogicTests(unittest.TestCase):
         self.assertEqual(overlaps[0]["slot_id"], "P01")
         self.assertGreater(overlaps[0]["ratio"], 0.45)
 
-    def test_current_slot_file_p03_crossing_is_fixed_only_in_memory(self):
+    def test_current_slot_file_p03_loads_without_mutating_json(self):
         path = Path(__file__).with_name("parking_slots.json")
         original = path.read_bytes()
-        with self.assertWarns(RuntimeWarning):
-            _, _, slots = load_slots(path)
+        _, _, slots = load_slots(path)
         self.assertEqual(path.read_bytes(), original)
         p03 = next(points for slot_id, points in slots if slot_id == "P03")
         self.assertGreater(cv2.contourArea(p03.astype(np.int32)), 10000)

@@ -45,6 +45,7 @@ class LatestFrameCamera:
     def __init__(self, capture):
         self.capture = capture
         self.lock = threading.Lock()
+        self.capture_lock = threading.Lock()
         self.stop_event = threading.Event()
         self.latest_frame = None
         self.sequence = 0
@@ -62,7 +63,10 @@ class LatestFrameCamera:
         failures = 0
         while not self.stop_event.is_set():
             try:
-                ok, frame = self.capture.read()
+                # AVFoundation capture objects are not safe to read and release
+                # concurrently from different threads.
+                with self.capture_lock:
+                    ok, frame = self.capture.read()
             except Exception as exc:
                 with self.lock:
                     self.error = f"Kamera kadrini o'qishda xato: {exc}"
@@ -92,10 +96,15 @@ class LatestFrameCamera:
 
     def stop(self):
         self.stop_event.set()
-        try:
-            self.capture.release()
-        except Exception:
-            pass
+        if self.thread.is_alive():
+            self.thread.join(timeout=2.0)
+        # Serialize release with read(). Normally the stop event lets the reader
+        # exit first; if read is still active, this waits for that call to finish.
+        with self.capture_lock:
+            try:
+                self.capture.release()
+            except Exception:
+                pass
         if self.thread.is_alive():
             self.thread.join(timeout=2.0)
 
@@ -208,6 +217,9 @@ def run_yolo_diagnostics(model, device):
         saved_frame = cv2.imread(str(saved_path), cv2.IMREAD_COLOR)
         if saved_frame is None:
             raise RuntimeError(f"Saqlangan kadr qayta o'qilmadi: {saved_path}")
+        # Do not keep an AVFoundation handle open while running model inference.
+        capture.release()
+        capture = None
 
         print(
             f"Captured camera frame: raw={camera_frame.shape[1]}x{camera_frame.shape[0]}, "
@@ -224,6 +236,34 @@ def run_yolo_diagnostics(model, device):
         ))
         print(f"  checkpoint={MODEL_PATH}; bytes={MODEL_PATH.stat().st_size}")
         print(f"  backend={device}")
+
+        # Compare the exact saved pixels on CPU and MPS, independently of the
+        # camera handle and the live preview loop.
+        comparison = {}
+        compare_devices = ["cpu"]
+        if torch.backends.mps.is_available():
+            compare_devices.append("mps")
+        for compare_device in compare_devices:
+            compare_result = model.predict(
+                source=saved_frame,
+                imgsz=960,
+                conf=0.05,
+                classes=None,
+                device=compare_device,
+                verbose=False,
+            )[0]
+            compare_detections = extract_detections(compare_result)
+            comparison[compare_device] = detection_signature(compare_detections)
+            print_raw_detections(
+                f"CPU/MPS comparison ({compare_device}, imgsz=960, conf=0.05)",
+                compare_detections,
+                model.names,
+            )
+        if len(comparison) == 2:
+            print(
+                "CPU/MPS exact detection signature match: "
+                f"{comparison['cpu'] == comparison['mps']}"
+            )
 
         # The annotation uses the most permissive requested threshold and the
         # largest requested image size, so it includes every returned raw box.
@@ -520,12 +560,14 @@ def run(diagnose_yolo=False):
         print(f"Parking detection xatosi: {exc}")
         return 1
     finally:
-        if stream is not None:
-            stream.stop()
         try:
-            cv2.destroyAllWindows()
-        except cv2.error:
-            pass
+            if stream is not None:
+                stream.stop()
+        finally:
+            try:
+                cv2.destroyAllWindows()
+            except cv2.error:
+                pass
 
 
 if __name__ == "__main__":
