@@ -17,6 +17,13 @@ from parking_logic import (
     load_slots,
     slot_vehicle_overlaps,
 )
+from slot_crops import crop_slots
+from slot_classifier import (
+    SlotStatus,
+    SlotStatusSmoother,
+    TorchSlotClassifier,
+    fuse_classifier_and_vehicle,
+)
 
 
 # Application configuration
@@ -349,6 +356,59 @@ def log_raw_and_vehicle_debug(now, last_log, raw_detections,
     return now
 
 
+def annotate_slot_classifications(frame, slot_masks, statuses, detections,
+                                  names, fps):
+    """Visualize the opt-in slot classifier path with explicit UNKNOWN slots."""
+    colors = {
+        SlotStatus.VACANT: (0, 220, 0),
+        SlotStatus.OCCUPIED: (0, 0, 255),
+        SlotStatus.UNKNOWN: (0, 220, 255),
+    }
+    overlay = frame.copy()
+    for slot in slot_masks:
+        prediction = statuses[slot.slot_id]
+        cv2.fillPoly(overlay, [slot.points], colors[prediction.status])
+    cv2.addWeighted(overlay, 0.18, frame, 0.82, 0, frame)
+
+    for slot in slot_masks:
+        prediction = statuses[slot.slot_id]
+        color = colors[prediction.status]
+        center = np.mean(slot.points, axis=0).astype(int)
+        cv2.polylines(frame, [slot.points], True, color, 3, cv2.LINE_AA)
+        cv2.putText(
+            frame,
+            f"{slot.slot_id} {prediction.status.value} {prediction.confidence:.0%}",
+            tuple(center), cv2.FONT_HERSHEY_SIMPLEX, 0.48, color, 2, cv2.LINE_AA,
+        )
+
+    boxes, confidences, classes, _ = detections
+    for box, confidence, class_id in zip(boxes, confidences, classes):
+        x1, y1, x2, y2 = np.rint(box).astype(int)
+        class_name = names.get(int(class_id), str(class_id))
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        cv2.putText(
+            frame, f"{class_name} {float(confidence):.2f}",
+            (x1, max(20, y1 - 7)), cv2.FONT_HERSHEY_SIMPLEX,
+            0.5, (255, 0, 0), 2, cv2.LINE_AA,
+        )
+
+    counts = {status: sum(item.status == status for item in statuses.values())
+              for status in SlotStatus}
+    cv2.rectangle(frame, (10, 10), (700, 185), (25, 25, 25), -1)
+    lines = [
+        f"Vehicles (independent YOLO): {len(boxes)}",
+        f"Total: {len(slot_masks)}  Occupied: {counts[SlotStatus.OCCUPIED]}  "
+        f"Available/Vacant: {counts[SlotStatus.VACANT]}",
+        f"Uncertain/Unknown: {counts[SlotStatus.UNKNOWN]}",
+        f"FPS: {fps:.1f}",
+    ]
+    for index, line in enumerate(lines):
+        cv2.putText(frame, line, (20, 38 + index * 36),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255),
+                    2, cv2.LINE_AA)
+    return frame
+
+
 def annotate_frame(frame, slot_masks, states, slot_ratios,
                    detections, names, fps, alignment_warning=False):
     # Tint each parking polygon before drawing its bright outline.
@@ -423,7 +483,7 @@ def annotate_frame(frame, slot_masks, states, slot_ratios,
     return frame
 
 
-def run(diagnose_yolo=False):
+def run(diagnose_yolo=False, slot_classifier_path=None):
     stream = None
     try:
         if not MODEL_PATH.is_file():
@@ -436,6 +496,14 @@ def run(diagnose_yolo=False):
         verify_model_weights(model)
         if diagnose_yolo:
             return run_yolo_diagnostics(model, device)
+        slot_classifier = None
+        if slot_classifier_path is not None:
+            slot_classifier = TorchSlotClassifier(slot_classifier_path, device=device)
+            print(
+                f"Per-slot classifier loaded: {slot_classifier.checkpoint_path.name} "
+                f"({slot_classifier.architecture}, {device}, "
+                f"threshold={slot_classifier.confidence_threshold:.0%})"
+            )
         try:
             camera = open_selected_camera()
         except RuntimeError as exc:
@@ -453,6 +521,7 @@ def run(diagnose_yolo=False):
         last_sequence = 0
         slot_masks = None
         smoother = None
+        status_smoother = None
         previous_time = time.perf_counter()
         last_debug_log = 0.0
         fps = 0.0
@@ -501,6 +570,12 @@ def run(diagnose_yolo=False):
                     window_size=SMOOTHING_WINDOW,
                     occupied_votes=SMOOTHING_OCCUPIED_VOTES,
                 )
+                if slot_classifier is not None:
+                    status_smoother = SlotStatusSmoother(
+                        [slot.slot_id for slot in slot_masks],
+                        window_size=SMOOTHING_WINDOW,
+                        required_votes=SMOOTHING_OCCUPIED_VOTES,
+                    )
 
             try:
                 result = model.predict(
@@ -532,22 +607,59 @@ def run(diagnose_yolo=False):
             for overlap in vehicle_slot_overlaps:
                 slot_id = overlap["slot_id"]
                 ratios[slot_id] = max(ratios[slot_id], overlap["ratio"])
-            states = smoother.update(ratios, SLOT_OVERLAP_THRESHOLD)
+            if slot_classifier is not None:
+                crops = crop_slots(frame, slot_masks, perspective=True)
+                classifier_predictions = slot_classifier.classify_batch(crops)
+                evidence_by_slot = {slot.slot_id: [] for slot in slot_masks}
+                for overlap in vehicle_slot_overlaps:
+                    vehicle_index = overlap["vehicle_index"]
+                    evidence_by_slot[overlap["slot_id"]].append({
+                        "confidence": float(detections[1][vehicle_index]),
+                        "ratio": float(overlap["ratio"]),
+                    })
+                fused_predictions = {
+                    slot.slot_id: fuse_classifier_and_vehicle(
+                        classifier_predictions[slot.slot_id],
+                        evidence_by_slot[slot.slot_id],
+                        min_overlap_ratio=SLOT_OVERLAP_THRESHOLD,
+                    )
+                    for slot in slot_masks
+                }
+                states = status_smoother.update(fused_predictions)
+            else:
+                states = smoother.update(ratios, SLOT_OVERLAP_THRESHOLD)
 
             now = time.perf_counter()
             instant_fps = 1.0 / max(now - previous_time, 1e-6)
             fps = instant_fps if fps == 0 else 0.85 * fps + 0.15 * instant_fps
             previous_time = now
 
-            display = annotate_frame(
-                frame, slot_masks, states, ratios, detections, model.names, fps,
-                alignment_warning=alignment_warning,
-            )
-            last_debug_log = log_raw_and_vehicle_debug(
-                now, last_debug_log, raw_detections, detections,
-                model.names, vehicle_slot_overlaps, ratios, states,
-                alignment_warning,
-            )
+            if slot_classifier is not None:
+                display = annotate_slot_classifications(
+                    frame, slot_masks, states, detections, model.names, fps
+                )
+                if DEBUG_MODE and now - last_debug_log >= DEBUG_LOG_INTERVAL_SECONDS:
+                    summary = {
+                        slot_id: {
+                            "status": item.status.value,
+                            "confidence": round(item.confidence, 3),
+                            "timestamp": item.timestamp,
+                        }
+                        for slot_id, item in states.items()
+                    }
+                    print(f"Slot classifier results: {summary}")
+                    print(f"YOLO vehicles (independent): {len(detections[0])}")
+                    last_debug_log = now
+            else:
+                display = annotate_frame(
+                    frame, slot_masks, states, ratios, detections, model.names, fps,
+                    alignment_warning=alignment_warning,
+                )
+                last_debug_log = log_raw_and_vehicle_debug(
+                    now, last_debug_log, raw_detections, detections,
+                    model.names, vehicle_slot_overlaps, ratios, states,
+                    alignment_warning,
+                )
             cv2.imshow(PREVIEW_WINDOW, display)
             if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q")):
                 break
@@ -576,5 +688,13 @@ if __name__ == "__main__":
         "--diagnose-yolo", action="store_true",
         help="Capture one selected-camera frame and compare raw YOLO outputs.",
     )
+    parser.add_argument(
+        "--slot-classifier", type=Path, default=None,
+        help="Enable per-slot classification with this trained checkpoint; "
+             "without it the existing YOLO occupancy path remains active.",
+    )
     arguments = parser.parse_args()
-    raise SystemExit(run(diagnose_yolo=arguments.diagnose_yolo))
+    raise SystemExit(run(
+        diagnose_yolo=arguments.diagnose_yolo,
+        slot_classifier_path=arguments.slot_classifier,
+    ))
