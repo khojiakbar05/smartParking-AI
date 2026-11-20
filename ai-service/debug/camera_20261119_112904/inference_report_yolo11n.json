@@ -1,0 +1,533 @@
+{
+  "checkpoint": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/yolo11n.pt",
+  "task": "detect",
+  "class_count": 80,
+  "class_names": {
+    "0": "person",
+    "1": "bicycle",
+    "2": "car",
+    "3": "motorcycle",
+    "4": "airplane",
+    "5": "bus",
+    "6": "train",
+    "7": "truck",
+    "8": "boat",
+    "9": "traffic light",
+    "10": "fire hydrant",
+    "11": "stop sign",
+    "12": "parking meter",
+    "13": "bench",
+    "14": "bird",
+    "15": "cat",
+    "16": "dog",
+    "17": "horse",
+    "18": "sheep",
+    "19": "cow",
+    "20": "elephant",
+    "21": "bear",
+    "22": "zebra",
+    "23": "giraffe",
+    "24": "backpack",
+    "25": "umbrella",
+    "26": "handbag",
+    "27": "tie",
+    "28": "suitcase",
+    "29": "frisbee",
+    "30": "skis",
+    "31": "snowboard",
+    "32": "sports ball",
+    "33": "kite",
+    "34": "baseball bat",
+    "35": "baseball glove",
+    "36": "skateboard",
+    "37": "surfboard",
+    "38": "tennis racket",
+    "39": "bottle",
+    "40": "wine glass",
+    "41": "cup",
+    "42": "fork",
+    "43": "knife",
+    "44": "spoon",
+    "45": "bowl",
+    "46": "banana",
+    "47": "apple",
+    "48": "sandwich",
+    "49": "orange",
+    "50": "broccoli",
+    "51": "carrot",
+    "52": "hot dog",
+    "53": "pizza",
+    "54": "donut",
+    "55": "cake",
+    "56": "chair",
+    "57": "couch",
+    "58": "potted plant",
+    "59": "bed",
+    "60": "dining table",
+    "61": "toilet",
+    "62": "tv",
+    "63": "laptop",
+    "64": "mouse",
+    "65": "remote",
+    "66": "keyboard",
+    "67": "cell phone",
+    "68": "microwave",
+    "69": "oven",
+    "70": "toaster",
+    "71": "sink",
+    "72": "refrigerator",
+    "73": "book",
+    "74": "clock",
+    "75": "vase",
+    "76": "scissors",
+    "77": "teddy bear",
+    "78": "hair drier",
+    "79": "toothbrush"
+  },
+  "devices": [
+    "cpu",
+    "mps"
+  ],
+  "frames": [
+    {
+      "frame": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/debug/camera_20261119_112904/frame_01.jpg",
+      "width": 1920,
+      "height": 1080,
+      "imgsz": 960,
+      "confidence_threshold": 0.05,
+      "detections": {
+        "cpu": [],
+        "mps": []
+      },
+      "cpu_mps_signature_match": true
+    },
+    {
+      "frame": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/debug/camera_20261119_112904/frame_02.jpg",
+      "width": 1920,
+      "height": 1080,
+      "imgsz": 960,
+      "confidence_threshold": 0.05,
+      "detections": {
+        "cpu": [],
+        "mps": []
+      },
+      "cpu_mps_signature_match": true
+    },
+    {
+      "frame": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/debug/camera_20261119_112904/frame_03.jpg",
+      "width": 1920,
+      "height": 1080,
+      "imgsz": 960,
+      "confidence_threshold": 0.05,
+      "detections": {
+        "cpu": [
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.781886875629425,
+            "box": [
+              820.931396484375,
+              3.4605712890625,
+              1918.991943359375,
+              1054.8275146484375
+            ]
+          },
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.5362659692764282,
+            "box": [
+              844.4461669921875,
+              21.865966796875,
+              1919.5843505859375,
+              1057.292724609375
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.28062719106674194,
+            "box": [
+              184.4969482421875,
+              0.0,
+              1430.1556396484375,
+              1056.4071044921875
+            ]
+          },
+          {
+            "class_id": 67,
+            "name": "cell phone",
+            "confidence": 0.12754018604755402,
+            "box": [
+              166.194580078125,
+              0.0,
+              1409.196533203125,
+              682.1593017578125
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.08164246380329132,
+            "box": [
+              152.2659912109375,
+              0.0,
+              1370.075439453125,
+              692.2606201171875
+            ]
+          }
+        ],
+        "mps": [
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.7818875312805176,
+            "box": [
+              820.930908203125,
+              3.46044921875,
+              1918.991943359375,
+              1054.82763671875
+            ]
+          },
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.5362656712532043,
+            "box": [
+              844.44580078125,
+              21.865966796875,
+              1919.584228515625,
+              1057.292724609375
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.2806273400783539,
+            "box": [
+              184.4970703125,
+              0.0,
+              1430.155517578125,
+              1056.406982421875
+            ]
+          },
+          {
+            "class_id": 67,
+            "name": "cell phone",
+            "confidence": 0.12754061818122864,
+            "box": [
+              166.194091796875,
+              0.0,
+              1409.1964111328125,
+              682.1591796875
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.08164233714342117,
+            "box": [
+              152.2659912109375,
+              0.0,
+              1370.0758056640625,
+              692.260498046875
+            ]
+          }
+        ]
+      },
+      "cpu_mps_signature_match": true
+    },
+    {
+      "frame": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/debug/camera_20261119_112904/frame_04.jpg",
+      "width": 1920,
+      "height": 1080,
+      "imgsz": 960,
+      "confidence_threshold": 0.05,
+      "detections": {
+        "cpu": [
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.6406362056732178,
+            "box": [
+              559.29736328125,
+              246.3304443359375,
+              1901.7900390625,
+              1077.528076171875
+            ]
+          },
+          {
+            "class_id": 0,
+            "name": "person",
+            "confidence": 0.3904080092906952,
+            "box": [
+              1816.137939453125,
+              321.90203857421875,
+              1919.6171875,
+              506.8511962890625
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.27860307693481445,
+            "box": [
+              2.061279296875,
+              3.836181640625,
+              1250.0703125,
+              1005.591064453125
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.23016193509101868,
+            "box": [
+              2.6507568359375,
+              2.10455322265625,
+              1250.7254638671875,
+              930.4322509765625
+            ]
+          },
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.20924048125743866,
+            "box": [
+              1294.14013671875,
+              0.0,
+              1914.71923828125,
+              90.25453186035156
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.17842814326286316,
+            "box": [
+              227.6207275390625,
+              7.98046875,
+              1920.0,
+              1080.0
+            ]
+          },
+          {
+            "class_id": 64,
+            "name": "mouse",
+            "confidence": 0.099362812936306,
+            "box": [
+              1732.7783203125,
+              66.0494384765625,
+              1919.3935546875,
+              164.78472900390625
+            ]
+          },
+          {
+            "class_id": 0,
+            "name": "person",
+            "confidence": 0.05579947307705879,
+            "box": [
+              1817.653076171875,
+              321.49908447265625,
+              1919.712890625,
+              962.0927124023438
+            ]
+          }
+        ],
+        "mps": [
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.640638530254364,
+            "box": [
+              559.2977905273438,
+              246.33056640625,
+              1901.7900390625,
+              1077.528076171875
+            ]
+          },
+          {
+            "class_id": 0,
+            "name": "person",
+            "confidence": 0.3904075026512146,
+            "box": [
+              1816.137939453125,
+              321.9019775390625,
+              1919.6171875,
+              506.8511962890625
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.2786022424697876,
+            "box": [
+              2.0614013671875,
+              3.836181640625,
+              1250.0701904296875,
+              1005.5906982421875
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.23016084730625153,
+            "box": [
+              2.6507568359375,
+              2.1046142578125,
+              1250.7252197265625,
+              930.431884765625
+            ]
+          },
+          {
+            "class_id": 66,
+            "name": "keyboard",
+            "confidence": 0.20924048125743866,
+            "box": [
+              1294.14013671875,
+              0.0,
+              1914.71923828125,
+              90.25448608398438
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.1784290075302124,
+            "box": [
+              227.6204833984375,
+              7.98046875,
+              1920.0,
+              1080.0
+            ]
+          },
+          {
+            "class_id": 64,
+            "name": "mouse",
+            "confidence": 0.09936348348855972,
+            "box": [
+              1732.7783203125,
+              66.0494384765625,
+              1919.3935546875,
+              164.78472900390625
+            ]
+          },
+          {
+            "class_id": 0,
+            "name": "person",
+            "confidence": 0.055799450725317,
+            "box": [
+              1817.653076171875,
+              321.4990234375,
+              1919.712890625,
+              962.0933837890625
+            ]
+          }
+        ]
+      },
+      "cpu_mps_signature_match": true
+    },
+    {
+      "frame": "/Users/khojiakbarkarimjonov/Desktop/smartParking-AI/ai-service/debug/camera_20261119_112904/frame_05.jpg",
+      "width": 1920,
+      "height": 1080,
+      "imgsz": 960,
+      "confidence_threshold": 0.05,
+      "detections": {
+        "cpu": [
+          {
+            "class_id": 68,
+            "name": "microwave",
+            "confidence": 0.1673809140920639,
+            "box": [
+              1.740478515625,
+              2.962158203125,
+              995.7462158203125,
+              1064.6461181640625
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.13225288689136505,
+            "box": [
+              2.0186767578125,
+              1.631103515625,
+              1000.1552734375,
+              1056.92529296875
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.07706747204065323,
+            "box": [
+              1273.792236328125,
+              739.3505859375,
+              1701.9765625,
+              1080.0
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.05569106712937355,
+            "box": [
+              3.46429443359375,
+              99.124267578125,
+              994.946533203125,
+              1063.4210205078125
+            ]
+          }
+        ],
+        "mps": [
+          {
+            "class_id": 68,
+            "name": "microwave",
+            "confidence": 0.16738247871398926,
+            "box": [
+              1.74053955078125,
+              2.962158203125,
+              995.7462158203125,
+              1064.646240234375
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.13225209712982178,
+            "box": [
+              2.01861572265625,
+              1.631103515625,
+              1000.1552734375,
+              1056.92529296875
+            ]
+          },
+          {
+            "class_id": 62,
+            "name": "tv",
+            "confidence": 0.07706764340400696,
+            "box": [
+              1273.792236328125,
+              739.3504638671875,
+              1701.976318359375,
+              1080.0
+            ]
+          },
+          {
+            "class_id": 63,
+            "name": "laptop",
+            "confidence": 0.055690616369247437,
+            "box": [
+              3.46435546875,
+              99.12448120117188,
+              994.946533203125,
+              1063.4208984375
+            ]
+          }
+        ]
+      },
+      "cpu_mps_signature_match": true
+    }
+  ]
+}
